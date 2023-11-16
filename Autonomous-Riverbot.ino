@@ -36,6 +36,7 @@ Servo servo1;
 const float stopDist = 20; //distance in centimeters that the car will stop
 int servoPos = 90;
 bool manualOverride = true;
+int manualSpeed = 150;
 
 void setup()
 {
@@ -224,7 +225,6 @@ bool manualInput() //determines if a manual input has been sent and performs req
       Serial.println(" released");
     }
 
-    int manualSpeed = 150
     switch(buttnum) {
       case 1:
         manualOverride = true;
@@ -236,12 +236,24 @@ bool manualInput() //determines if a manual input has been sent and performs req
         Serial.println("unoverride");
         break;
       case 3:
+        while (pressed){
+          manualSpeed = manualSpeed - 10;
+          int constrainSpeed = constrain(manualSpeed, 50, 255);
+          manualSpeed = constrainSpeed;
+          Serial.println(manualSpeed);
+        }
         break;
       case 4:
+        while (pressed){
+          manualSpeed = manualSpeed + 10;
+          int constrainSpeed = constrain(manualSpeed, 50, 255);
+          manualSpeed = constrainSpeed;
+          Serial.println(manualSpeed);
+        }
         break;
       case 5:
         if (pressed) {
-          goFC(150);
+          goFC(manualSpeed);
         }
         else {
           Serial.println("stop forward");
@@ -250,7 +262,7 @@ bool manualInput() //determines if a manual input has been sent and performs req
         break;
       case 6:
         if (pressed) {
-          goBC(150);
+          goBC(manualSpeed);
 
         } 
         else {
@@ -259,7 +271,7 @@ bool manualInput() //determines if a manual input has been sent and performs req
         break;
       case 7:
         if (pressed) {
-          turnLC(100);
+          turnLC(manualSpeed);
         } 
         else {
           stop(1);
@@ -267,7 +279,7 @@ bool manualInput() //determines if a manual input has been sent and performs req
         break;
       case 8:
         if (pressed) {
-          turnRC(100);
+          turnRC(manualSpeed);
         } 
         else {
           stop(1);

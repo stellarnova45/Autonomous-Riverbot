@@ -1,12 +1,12 @@
 #include <Servo.h>
-#include "HCSR04.h"
-#include "Adafruit_MotorShield.h"
+#include "src/HCSR04.h"
 #include <string.h>
 #include <Arduino.h>
 #include <SPI.h>
 #include "Adafruit_BLE.h"
 #include "Adafruit_BluefruitLE_SPI.h"
 #include "BluefruitConfig.h"
+#include "motor_directions.h"
 
 #if SOFTWARE_SERIAL_AVAILABLE
   #include <SoftwareSerial.h>
@@ -28,22 +28,14 @@ void printHex(const uint8_t * data, const uint32_t numBytes);
 // the packet buffer
 extern uint8_t packetbuffer[];
 
-//create motor shield object and 4 motors
-Adafruit_MotorShield AFMS = Adafruit_MotorShield();
-Adafruit_DCMotor *Motor1 = AFMS.getMotor(1);
-Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
-Adafruit_DCMotor *Motor3 = AFMS.getMotor(3);
-Adafruit_DCMotor *Motor4 = AFMS.getMotor(4);
-
 Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
 HCSR04 hc(2, 3); //initialisation class HCSR04 (trig pin , echo pin)
 Servo servo1;
 
-//constants & variables
-const unsigned long distFactor = 276; //allows configuration of how fine the distance definition is (1000 = 10ms delay at 100 speed)(currently set to approximate 1 unit per mm)
-const unsigned long angleFactor = 880; //allows configuration of how fine the angle definition is
+//global constants & variables
 const float stopDist = 20; //distance in centimeters that the car will stop
 int servoPos = 90;
+bool manualOverride = true;
 
 void setup()
 {
@@ -115,10 +107,11 @@ void setup()
 
 void loop()
 {
+  if (manualInput()) return;
+  if (manualOverride) return;
+
   int currentDist = hc.dist(); //store distance value for this loop
   int speed = constrain(map(currentDist, 50, 400, 100, 255), 100, 255); //variable movement speed based on distances
-
-  if (manualInput()) return;
 
   if (currentDist > stopDist) {
     goFC(speed);
@@ -147,90 +140,6 @@ void loop()
     }
     delay(200);
   }
-}
-
-//functions definitions
-void goF(int speed, int dist) //drives straight forward
-{
-    Motor1->setSpeed(speed-2);
-    Motor2->setSpeed(speed-2);
-    Motor3->setSpeed(speed);
-    Motor4->setSpeed(speed);
-
-    Motor1->run(FORWARD);
-    Motor2->run(FORWARD);
-    Motor3->run(FORWARD);
-    Motor4->run(FORWARD);
-    delay((dist*distFactor)/speed);
-}
-
-void goFC(int speed) //drives straight forward
-{
-    Motor1->setSpeed(speed-2);
-    Motor2->setSpeed(speed-2);
-    Motor3->setSpeed(speed);
-    Motor4->setSpeed(speed);
-
-    Motor1->run(FORWARD);
-    Motor2->run(FORWARD);
-    Motor3->run(FORWARD);
-    Motor4->run(FORWARD);
-}
-
-void goB(int speed, int dist) //drives straight backward
-{
-    Motor1->setSpeed(speed);
-    Motor2->setSpeed(speed);
-    Motor3->setSpeed(speed);
-    Motor4->setSpeed(speed);
-
-    Motor1->run(BACKWARD);
-    Motor2->run(BACKWARD);
-    Motor3->run(BACKWARD);
-    Motor4->run(BACKWARD);
-    delay((dist*distFactor)/speed);
-}
-
-void turnL(int speed, int angle) //turns vehicle left in place
-{
-    Motor1->setSpeed(speed);
-    Motor2->setSpeed(speed);
-    Motor3->setSpeed(speed);
-    Motor4->setSpeed(speed);
-
-    Motor1->run(BACKWARD);
-    Motor2->run(BACKWARD);
-    Motor3->run(FORWARD);
-    Motor4->run(FORWARD);
-    delay((angle*angleFactor)/speed);
-}
-
-void turnR(int speed, int angle) //turns vehicle right in place
-{
-    Motor1->setSpeed(speed);
-    Motor2->setSpeed(speed);
-    Motor3->setSpeed(speed);
-    Motor4->setSpeed(speed);
-
-    Motor1->run(FORWARD);
-    Motor2->run(FORWARD);
-    Motor3->run(BACKWARD);
-    Motor4->run(BACKWARD);
-    delay((angle*angleFactor)/speed);
-}
-
-void stop(int time) //stops motors
-{
-    Motor1->setSpeed(0);
-    Motor2->setSpeed(0);
-    Motor3->setSpeed(0);
-    Motor4->setSpeed(0);
-
-    Motor1->run(BRAKE);
-    Motor2->run(BRAKE);
-    Motor3->run(BRAKE);
-    Motor4->run(BRAKE);
-    delay(time);
 }
 
 int findAngle() //probes for highest distance at 4 different angles
@@ -295,6 +204,48 @@ bool manualInput() //determines if a manual input has been sent and performs req
     } else {
       Serial.println(" released");
     }
+
+    switch(buttnum) {
+      case 1:
+        manualOverride = true;
+        break;
+      case 2:
+        manualOverride = false;
+        break;
+      case 3:
+        break;
+      case 4:
+        break;
+      case 5:
+        if (pressed) {
+          goFC(150);
+        } else {
+          stop(1);
+        }
+        break;
+      case 6:
+        if (pressed) {
+          goBC(150);
+
+        } else {
+          stop(1);
+        }
+        break;
+      case 7:
+        if (pressed) {
+          turnLC(100);
+        } else {
+          stop(1);
+        }
+        break;
+      case 8:
+        if (pressed) {
+          turnRC(100);
+        } else {
+          stop(1);
+        }
+        break;
+    }
   }
-  return true;
+  return false;
 }

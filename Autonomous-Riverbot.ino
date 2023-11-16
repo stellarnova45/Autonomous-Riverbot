@@ -118,6 +118,8 @@ void loop()
   int currentDist = hc.dist(); //store distance value for this loop
   int speed = constrain(map(currentDist, 50, 400, 100, 255), 100, 255); //variable movement speed based on distances
 
+  if (manualInput()) return;
+
   if (currentDist > stopDist) {
     goFC(speed);
   }
@@ -242,24 +244,57 @@ int findAngle() //probes for highest distance at 4 different angles
     angleChoice = 2;
   }
   
-  servo1.write(170);
-  delay(100);
-  if(hc.dist() >= distance) {
-    angleChoice = 1;
-  }
-
   servo1.write(50);
-  delay(300);
+  delay(200);
   if(hc.dist() >= distance) {
     angleChoice = 3;
   }
 
+  servo1.write(170);
+  delay(300);
+  if(hc.dist() >= distance) {
+    angleChoice = 1;
+  }
+
   servo1.write(10);
-  delay(100);
+  delay(400);
   if(hc.dist() >= distance) {
     angleChoice = 4;
   }
 
   servo1.write(90);
   return(angleChoice);
+}
+
+bool manualInput() //determines if a manual input has been sent and performs requested action
+{
+  uint8_t len = readPacket(&ble, BLE_READPACKET_TIMEOUT);
+  if (len == 0) return false;
+
+  // Color
+  if (packetbuffer[1] == 'C') {
+    uint8_t red = packetbuffer[2];
+    uint8_t green = packetbuffer[3];
+    uint8_t blue = packetbuffer[4];
+    Serial.print ("RGB #");
+    if (red < 0x10) Serial.print("0");
+    Serial.print(red, HEX);
+    if (green < 0x10) Serial.print("0");
+    Serial.print(green, HEX);
+    if (blue < 0x10) Serial.print("0");
+    Serial.println(blue, HEX);
+  }
+
+  // Buttons
+  if (packetbuffer[1] == 'B') {
+    uint8_t buttnum = packetbuffer[2] - '0';
+    boolean pressed = packetbuffer[3] - '0';
+    Serial.print ("Button "); Serial.print(buttnum);
+    if (pressed) {
+      Serial.println(" pressed");
+    } else {
+      Serial.println(" released");
+    }
+  }
+  return true;
 }

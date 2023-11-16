@@ -160,20 +160,20 @@ int findAngle() //probes for highest distance at 4 different angles
     angleChoice = 2;
   }
   
-  servo1.write(170);
-  delay(100);
-  if(hc.dist() >= distance) {
-    angleChoice = 1;
-  }
-
   servo1.write(50);
-  delay(300);
+  delay(200);
   if(hc.dist() >= distance) {
     angleChoice = 3;
   }
 
+  servo1.write(170);
+  delay(300);
+  if(hc.dist() >= distance) {
+    angleChoice = 1;
+  }
+
   servo1.write(10);
-  delay(100);
+  delay(400);
   if(hc.dist() >= distance) {
     angleChoice = 4;
   }

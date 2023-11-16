@@ -13,7 +13,7 @@
 #endif
 
 //bluetooth settings
-#define FACTORYRESET_ENABLE         1
+#define FACTORYRESET_ENABLE         0
 #define MINIMUM_FIRMWARE_VERSION    "0.6.6"
 #define MODE_LED_BEHAVIOUR          "MODE"
 // A small helper
@@ -29,7 +29,7 @@ void printHex(const uint8_t * data, const uint32_t numBytes);
 extern uint8_t packetbuffer[];
 
 Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
-HCSR04 hc(2, 3); //initialisation class HCSR04 (trig pin , echo pin)
+HCSR04 hc(3, 2); //initialisation class HCSR04 (trig pin , echo pin)
 Servo servo1;
 
 //global constants & variables
@@ -44,6 +44,10 @@ void setup()
   if (!AFMS.begin()) {
     while (1);
   }
+
+  servo1.attach(10); //servo attached to pin 10
+  servo1.write(servoPos);
+  delay(200);
 
 /* Initialise the module */
   Serial.print(F("Initialising the Bluefruit LE module: "));
@@ -100,26 +104,28 @@ void setup()
 
 /***************************************************************/ 
 
-  servo1.attach(10); //servo attached to pin 4
-  servo1.write(servoPos);
-  delay(200);
 }
 
 void loop()
 {
   if (manualInput()) return;
+  delay(10);
   if (manualOverride) return;
 
   int currentDist = hc.dist(); //store distance value for this loop
-  int speed = constrain(map(currentDist, 50, 400, 100, 255), 100, 255); //variable movement speed based on distances
+  int speed = constrain(map(currentDist, 50, 120, 100, 255), 100, 255); //variable movement speed based on distances
+  Serial.println(currentDist);
+  Serial.println(speed);
 
   if (currentDist > stopDist) {
     goFC(speed);
+    return;
   }
   else if(currentDist <= stopDist) {
     stop(50);
     int turnAngle = 0;
-    while (turnAngle = 0) {
+    while (turnAngle == 0) {
+      Serial.println("made it");
       turnAngle = findAngle();
       switch(turnAngle) { //decide how to avoid obstacle based on readings
         case 1:
@@ -146,30 +152,43 @@ int findAngle() //probes for highest distance at 4 different angles
 {
   float distance = 0;
   int angleChoice = 0;
+  float currentDist = 0;
 
   servo1.write(130);
-  delay(100);
-  if(hc.dist() >= distance) {
+  delay(250);
+  currentDist = hc.dist();
+  if(currentDist >= distance) {
+    distance = currentDist;
     angleChoice = 2;
   }
+  delay(250);
+
   
   servo1.write(50);
-  delay(200);
-  if(hc.dist() >= distance) {
+  delay(500);
+  currentDist = hc.dist();
+  if(currentDist >= distance) {
     angleChoice = 3;
+    distance = currentDist;
   }
+  delay(250);
 
   servo1.write(170);
-  delay(300);
-  if(hc.dist() >= distance) {
+  delay(500);
+  currentDist = hc.dist();
+  if(currentDist >= distance) {
     angleChoice = 1;
+    distance = currentDist;
   }
+  delay(250);
 
   servo1.write(10);
-  delay(400);
-  if(hc.dist() >= distance) {
+  delay(500);
+  currentDist = hc.dist();
+  if(currentDist >= distance) {
     angleChoice = 4;
   }
+  delay(250);
 
   servo1.write(90);
   return(angleChoice);
@@ -177,7 +196,7 @@ int findAngle() //probes for highest distance at 4 different angles
 
 bool manualInput() //determines if a manual input has been sent and performs requested action
 {
-  uint8_t len = readPacket(&ble, BLE_READPACKET_TIMEOUT);
+  uint8_t len = readPacket(&ble, 60);
   if (len == 0) return false;
 
   // Color
@@ -205,12 +224,16 @@ bool manualInput() //determines if a manual input has been sent and performs req
       Serial.println(" released");
     }
 
+    int manualSpeed = 150
     switch(buttnum) {
       case 1:
         manualOverride = true;
+        Serial.println("overridden");
+        stop(1);
         break;
       case 2:
         manualOverride = false;
+        Serial.println("unoverride");
         break;
       case 3:
         break;
@@ -219,7 +242,9 @@ bool manualInput() //determines if a manual input has been sent and performs req
       case 5:
         if (pressed) {
           goFC(150);
-        } else {
+        }
+        else {
+          Serial.println("stop forward");
           stop(1);
         }
         break;
@@ -227,21 +252,24 @@ bool manualInput() //determines if a manual input has been sent and performs req
         if (pressed) {
           goBC(150);
 
-        } else {
+        } 
+        else {
           stop(1);
         }
         break;
       case 7:
         if (pressed) {
           turnLC(100);
-        } else {
+        } 
+        else {
           stop(1);
         }
         break;
       case 8:
         if (pressed) {
           turnRC(100);
-        } else {
+        } 
+        else {
           stop(1);
         }
         break;

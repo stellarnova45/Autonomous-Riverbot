@@ -1,7 +1,7 @@
 #include "src/Adafruit_MotorShield.h"
 
 const unsigned long distFactor = 276; //allows configuration of how fine the distance definition is (1000 = 10ms delay at 100 speed)(currently set to approximate 1 unit per mm)
-const unsigned long angleFactor = 880; //allows configuration of how fine the angle definition is
+const unsigned long angleFactor = 680; //allows configuration of how fine the angle definition is
 
 //create motor shield object and 4 motors
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();

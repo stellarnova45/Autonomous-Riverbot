@@ -30,7 +30,7 @@ float HCSR04::dist(int n) const
 	float d = pulseIn(this->echo[n], HIGH, 23529.4); // max sensor dist ~4m
 	interrupts();
   if (d == 0){
-    d = 23529.4;
+    return 400;
   }
 	return d / 58.8235;
 }

@@ -132,39 +132,31 @@ void loop()
   }
   else if(currentDist <= stopDist) {
     stop(50);
-    int turnAngle = 0;
-    while (turnAngle == 0) {
-      Serial.println("made it");
-      turnAngle = decideDirection();
-      switch(turnAngle) { //decide how to avoid obstacle based on readings
-        case 1:
-          turnL(100, 90);
-          break;
-        case 2:
-          turnL(100, 45);
-          break;
-        case 3:
-          turnR(100, 45);
-          break;
-        case 4:
-          turnR(100, 90);
-          break;
-        default:
-          break;
+    if (decideDirection()) {
+      for(int i = 0; i <= 2000 || hc.dist() <= 40; i++) {
+        turnRC(100);
       }
+      stop(1);
     }
-    delay(200);
+    else {
+      for(int i = 0; i <= 2000 || hc.dist() <= 40; i++) {
+        turnLC(100);
+      }
+      stop(1);
+    }
   }
 }
 
 /******************************************************************************************************/
 /* * * * * * * * * * * * * * * *  Functions * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /******************************************************************************************************/
+
+//Decide Right = True
 bool decideDirection() //finds average distance between left and right directions, then returns the higher valued direction
 {
   float leftDistAverage = 0;
   float rightDistAverage = 0;
-  servo1.easeTo(90, 450);
+  servo1.easeTo(90, 1000);
 
   servo1.startEaseTo(160, 50);
     delay(200);
@@ -174,7 +166,7 @@ bool decideDirection() //finds average distance between left and right direction
     }
     leftDistAverage = leftDistAverage/15;
 
-  servo1.easeTo(90, 450);
+  servo1.easeTo(90, 1000);
   servo1.startEaseTo(20, 50);
     delay(200);
     for(int i = 0; i <= 15; i++) {
@@ -183,12 +175,13 @@ bool decideDirection() //finds average distance between left and right direction
     }
     rightDistAverage = rightDistAverage/15;
 
-  servo1.startEaseTo(90, 450);
+  servo1.startEaseTo(90, 1000);
   if (rightDistAverage >= leftDistAverage) return true;
   else return false;
 }
 
-bool manualInput() //determines if a manual input has been sent and performs requested action
+//determines if a manual input has been sent and performs requested action
+bool manualInput()
 {
   uint8_t len = readPacket(&ble, 60);
   if (len == 0) return false;

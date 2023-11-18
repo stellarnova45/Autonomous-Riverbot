@@ -1,4 +1,4 @@
-#include <Servo.h>
+#include <ServoEasing.hpp>
 #include "src/HCSR04.h"
 #include <string.h>
 #include <Arduino.h>
@@ -30,14 +30,20 @@ extern uint8_t packetbuffer[];
 
 Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
 HCSR04 hc(3, 2); //initialisation class HCSR04 (trig pin , echo pin)
-Servo servo1;
+ServoEasing servo1;
 
 //global constants & variables
+float currentDist;
 const float stopDist = 20; //distance in centimeters that the car will stop
 int servoPos = 90;
 bool manualOverride = true;
 int manualSpeed = 150;
+int milliStore = 0;
+int milliPulse = 60;
 
+/******************************************************************************************************/
+/* * * * * * * * * * * * * * * *  Setup * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/******************************************************************************************************/
 void setup()
 {
   Serial.begin(9600);
@@ -45,10 +51,10 @@ void setup()
   if (!AFMS.begin()) {
     while (1);
   }
-
-  servo1.attach(10); //servo attached to pin 10
-  servo1.write(servoPos);
-  delay(200);
+  
+  servo1.attach(10, 90); //servo attached to pin 10
+  servo1.setSpeed(150);
+  servo1.setEasingType(EASE_CUBIC_IN_OUT);
 
 /* Initialise the module */
   Serial.print(F("Initialising the Bluefruit LE module: "));
@@ -102,18 +108,20 @@ void setup()
   ble.setMode(BLUEFRUIT_MODE_DATA);
 
   Serial.println(F("******************************"));
-
-/***************************************************************/ 
-
 }
 
+/******************************************************************************************************/
+/* * * * * * * * * * * * * * * *  Loop  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/******************************************************************************************************/
 void loop()
 {
-  if (manualInput()) return;
-  delay(10);
-  if (manualOverride) return;
+  if (manualInput()) return; //the bluetooth functionality, checks for any data
+  if (manualOverride) return; //responsible for the override stop functionality
 
-  int currentDist = hc.dist(); //store distance value for this loop
+  if (millis() >= milliStore + milliPulse){ 
+    float currentDist = hc.dist(); //store distance value for this loop
+    milliStore = millis();
+  }
   int speed = constrain(map(currentDist, 50, 120, 100, 255), 100, 255); //variable movement speed based on distances
   Serial.println(currentDist);
   Serial.println(speed);
@@ -127,7 +135,7 @@ void loop()
     int turnAngle = 0;
     while (turnAngle == 0) {
       Serial.println("made it");
-      turnAngle = findAngle();
+      turnAngle = decideDirection();
       switch(turnAngle) { //decide how to avoid obstacle based on readings
         case 1:
           turnL(100, 90);
@@ -149,50 +157,35 @@ void loop()
   }
 }
 
-int findAngle() //probes for highest distance at 4 different angles
+/******************************************************************************************************/
+/* * * * * * * * * * * * * * * *  Functions * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/******************************************************************************************************/
+bool decideDirection() //finds average distance between left and right directions, then returns the higher valued direction
 {
-  float distance = 0;
-  int angleChoice = 0;
-  float currentDist = 0;
+  float leftDistAverage = 0;
+  float rightDistAverage = 0;
+  servo1.easeTo(90, 450);
 
-  servo1.write(130);
-  delay(250);
-  currentDist = hc.dist();
-  if(currentDist >= distance) {
-    distance = currentDist;
-    angleChoice = 2;
-  }
-  delay(250);
+  servo1.startEaseTo(160, 50);
+    delay(200);
+    for(int i = 0; i <= 15; i++) {
+      leftDistAverage = leftDistAverage + hc.dist();
+      if (manualInput()) break;
+    }
+    leftDistAverage = leftDistAverage/15;
 
-  
-  servo1.write(50);
-  delay(500);
-  currentDist = hc.dist();
-  if(currentDist >= distance) {
-    angleChoice = 3;
-    distance = currentDist;
-  }
-  delay(250);
+  servo1.easeTo(90, 450);
+  servo1.startEaseTo(20, 50);
+    delay(200);
+    for(int i = 0; i <= 15; i++) {
+      rightDistAverage = rightDistAverage + hc.dist();
+      if (manualInput()) break;
+    }
+    rightDistAverage = rightDistAverage/15;
 
-  servo1.write(170);
-  delay(500);
-  currentDist = hc.dist();
-  if(currentDist >= distance) {
-    angleChoice = 1;
-    distance = currentDist;
-  }
-  delay(250);
-
-  servo1.write(10);
-  delay(500);
-  currentDist = hc.dist();
-  if(currentDist >= distance) {
-    angleChoice = 4;
-  }
-  delay(250);
-
-  servo1.write(90);
-  return(angleChoice);
+  servo1.startEaseTo(90, 450);
+  if (rightDistAverage >= leftDistAverage) return true;
+  else return false;
 }
 
 bool manualInput() //determines if a manual input has been sent and performs requested action

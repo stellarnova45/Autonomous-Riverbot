@@ -27,8 +27,8 @@ float parsefloat(uint8_t *buffer);
 void printHex(const uint8_t * data, const uint32_t numBytes);
 // the packet buffer
 extern uint8_t packetbuffer[];
-
 Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
+
 HCSR04 hc(3, 2); //initialisation class HCSR04 (trig pin , echo pin)
 ServoEasing servo1;
 
@@ -42,7 +42,7 @@ int milliStore = 0;
 int milliPulse = 60;
 
 /******************************************************************************************************/
-/* * * * * * * * * * * * * * * *  Setup * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * Setup  * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /******************************************************************************************************/
 void setup()
 {
@@ -111,7 +111,7 @@ void setup()
 }
 
 /******************************************************************************************************/
-/* * * * * * * * * * * * * * * *  Loop  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * Loop * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /******************************************************************************************************/
 void loop()
 {
@@ -123,8 +123,8 @@ void loop()
     milliStore = millis();
   }
   int speed = constrain(map(currentDist, 50, 120, 100, 255), 100, 255); //variable movement speed based on distances
-  Serial.println(currentDist);
-  Serial.println(speed);
+  Serial.println("Distance: "); Serial.print(currentDist);
+  Serial.println("Speed: "); Serial.print(speed);
 
   if (currentDist > stopDist) {
     goFC(speed);
@@ -133,15 +133,18 @@ void loop()
   else if(currentDist <= stopDist) {
     stop(50);
     if (decideDirection()) {
-      for(int i = 0; i <= 2000 || hc.dist() <= 40; i++) {
-        turnRC(100);
+      for(int i = 0; i <= 180 || hc.dist() <= 40; i++) {
+        turnR(100, 1);
       }
+      delay(500);
       stop(1);
     }
     else {
-      for(int i = 0; i <= 2000 || hc.dist() <= 40; i++) {
-        turnLC(100);
+      if (manualOverride) return;
+      for(int i = 0; i <= 180 || hc.dist() <= 40; i++) {
+        turnL(100, 1);
       }
+      delay(500);
       stop(1);
     }
   }
@@ -156,49 +159,38 @@ bool decideDirection() //finds average distance between left and right direction
 {
   float leftDistAverage = 0;
   float rightDistAverage = 0;
-  servo1.easeTo(90, 1000);
+  servo1.easeTo(90, 1000); //set sensor to middle in case it isn't already
 
-  servo1.startEaseTo(160, 50);
+  servo1.startEaseTo(160, 50); //non-blocking movement
     delay(200);
-    for(int i = 0; i <= 15; i++) {
+    for(int i = 0; i <= 15; i++) { //takes 15 pulses of distance for average
       leftDistAverage = leftDistAverage + hc.dist();
-      if (manualInput()) break;
+      if (manualInput()) break; //manualInput takes 60 milliseconds. This is critical to this function.
     }
-    leftDistAverage = leftDistAverage/15;
+  leftDistAverage = leftDistAverage/15;
 
   servo1.easeTo(90, 1000);
-  servo1.startEaseTo(20, 50);
+  servo1.startEaseTo(20, 50); //non-blocking movement
     delay(200);
-    for(int i = 0; i <= 15; i++) {
+    for(int i = 0; i <= 15; i++) { //takes 15 pulses of distance for average
       rightDistAverage = rightDistAverage + hc.dist();
-      if (manualInput()) break;
+      if (manualInput()) break; //manualInput takes 60 milliseconds. This is critical to this function.
     }
-    rightDistAverage = rightDistAverage/15;
+  rightDistAverage = rightDistAverage/15;
 
-  servo1.startEaseTo(90, 1000);
+  servo1.startEaseTo(90, 1000); // return sensor to middle
+  if (manualOverride) return false;
   if (rightDistAverage >= leftDistAverage) return true;
   else return false;
 }
 
+/**********************************************************************************************************************************************************/
+/**********************************************************************************************************************************************************/
 //determines if a manual input has been sent and performs requested action
 bool manualInput()
 {
-  uint8_t len = readPacket(&ble, 60);
-  if (len == 0) return false;
-
-  // Color
-  if (packetbuffer[1] == 'C') {
-    uint8_t red = packetbuffer[2];
-    uint8_t green = packetbuffer[3];
-    uint8_t blue = packetbuffer[4];
-    Serial.print ("RGB #");
-    if (red < 0x10) Serial.print("0");
-    Serial.print(red, HEX);
-    if (green < 0x10) Serial.print("0");
-    Serial.print(green, HEX);
-    if (blue < 0x10) Serial.print("0");
-    Serial.println(blue, HEX);
-  }
+  uint8_t len = readPacket(&ble, 60); //60 millisecond timeout, some functions rely on this. I know its bad but I'll fix it if I get the time.
+  if (len == 0) return false; //no new button presses
 
   // Buttons
   if (packetbuffer[1] == 'B') {
@@ -212,16 +204,16 @@ bool manualInput()
     }
 
     switch(buttnum) {
-      case 1:
+      case 1: //start manual only controls
         manualOverride = true;
         Serial.println("overridden");
         stop(1);
         break;
-      case 2:
+      case 2: //return to automatic driving
         manualOverride = false;
         Serial.println("unoverride");
         break;
-      case 3:
+      case 3: //decrease speed of manual inputs
         while (pressed){
           manualSpeed = manualSpeed - 10;
           int constrainSpeed = constrain(manualSpeed, 50, 255);
@@ -229,7 +221,7 @@ bool manualInput()
           Serial.println(manualSpeed);
         }
         break;
-      case 4:
+      case 4: //increase speed of manual inputs
         while (pressed){
           manualSpeed = manualSpeed + 10;
           int constrainSpeed = constrain(manualSpeed, 50, 255);
@@ -237,7 +229,7 @@ bool manualInput()
           Serial.println(manualSpeed);
         }
         break;
-      case 5:
+      case 5: //up dpad, goes forward
         if (pressed) {
           goFC(manualSpeed);
         }
@@ -246,16 +238,15 @@ bool manualInput()
           stop(1);
         }
         break;
-      case 6:
+      case 6: //down dpad, goes backward
         if (pressed) {
           goBC(manualSpeed);
-
         } 
         else {
           stop(1);
         }
         break;
-      case 7:
+      case 7: //left dpad, turns left
         if (pressed) {
           turnLC(manualSpeed);
         } 
@@ -263,7 +254,7 @@ bool manualInput()
           stop(1);
         }
         break;
-      case 8:
+      case 8: //right dpad, turns right
         if (pressed) {
           turnRC(manualSpeed);
         } 
@@ -273,5 +264,22 @@ bool manualInput()
         break;
     }
   }
-  return false;
+
+  /*
+  // Color ***potential for manual control over RGB LEDs***
+  if (packetbuffer[1] == 'C') { 
+    uint8_t red = packetbuffer[2];
+    uint8_t green = packetbuffer[3];
+    uint8_t blue = packetbuffer[4];
+    Serial.print ("RGB #");
+    if (red < 0x10) Serial.print("0");
+    Serial.print(red, HEX);
+    if (green < 0x10) Serial.print("0");
+    Serial.print(green, HEX);
+    if (blue < 0x10) Serial.print("0");
+    Serial.println(blue, HEX);
+  }
+  */
+
+  return true; //sets loop to immediately check for new input
 }

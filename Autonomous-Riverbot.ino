@@ -1,4 +1,6 @@
-#include <Servo.h>
+#define ENABLE_EASE_CUBIC
+#define ENABLE_EASE_BOUNCE
+#include <ServoEasing.hpp>
 #include "src/HCSR04.h"
 #include <string.h>
 #include <Arduino.h>
@@ -27,17 +29,24 @@ float parsefloat(uint8_t *buffer);
 void printHex(const uint8_t * data, const uint32_t numBytes);
 // the packet buffer
 extern uint8_t packetbuffer[];
-
 Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
+
 HCSR04 hc(3, 2); //initialisation class HCSR04 (trig pin , echo pin)
-Servo servo1;
+ServoEasing servo1;
 
 //global constants & variables
-const float stopDist = 20; //distance in centimeters that the car will stop
-int servoPos = 90;
+float currentDist;
+float stopDist = 30; //distance in centimeters that the car will stop
 bool manualOverride = true;
+bool stillPressed = false;
 int manualSpeed = 150;
+unsigned long currentMilli = 0;
+bool lastServo = false;
+bool servoMid = true;
 
+/******************************************************************************************************/
+/* * * * * * * * * * * * * * * * * * * * * Setup  * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/******************************************************************************************************/
 void setup()
 {
   Serial.begin(9600);
@@ -45,10 +54,10 @@ void setup()
   if (!AFMS.begin()) {
     while (1);
   }
-
-  servo1.attach(10); //servo attached to pin 10
-  servo1.write(servoPos);
-  delay(200);
+  
+  servo1.attach(10, 90); //servo attached to pin 10
+  servo1.setSpeed(150);
+  servo1.setEasingType(EASE_CUBIC_IN_OUT);
 
 /* Initialise the module */
   Serial.print(F("Initialising the Bluefruit LE module: "));
@@ -102,21 +111,56 @@ void setup()
   ble.setMode(BLUEFRUIT_MODE_DATA);
 
   Serial.println(F("******************************"));
-
-/***************************************************************/ 
-
 }
 
+/******************************************************************************************************/
+/* * * * * * * * * * * * * * * * * * * * * Loop * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/******************************************************************************************************/
 void loop()
 {
-  if (manualInput()) return;
-  delay(10);
-  if (manualOverride) return;
+  if (manualInput()) return; //the bluetooth functionality, checks for any data
+  if (stillPressed) return; //prevents continuation of code when interrupted by input
+  if (manualOverride) return; //responsible for the override stop functionality
+  currentMilli = millis();
+  Serial.println(currentMilli);
 
-  int currentDist = hc.dist(); //store distance value for this loop
-  int speed = constrain(map(currentDist, 50, 120, 100, 255), 100, 255); //variable movement speed based on distances
-  Serial.println(currentDist);
-  Serial.println(speed);
+  if (!servo1.isMoving()) {
+    if (lastServo) {
+      if (!servoMid) {
+        servo1.setEasingType(EASE_CUBIC_OUT);
+        servo1.startEaseTo(90, 350);
+        servoMid = true;
+        stopDist = 20;
+      }
+      else{
+        servo1.setEasingType(EASE_CUBIC_IN);
+        servo1.startEaseTo(170, 350);
+        servoMid = false;
+        lastServo = false;
+        stopDist = 30;
+      }
+    }
+    else {
+      if (!servoMid) {
+        servo1.setEasingType(EASE_CUBIC_OUT);
+        servo1.startEaseTo(90, 350);
+        servoMid = true;
+        stopDist = 20;
+      }
+      else{
+        servo1.setEasingType(EASE_CUBIC_IN);
+        servo1.startEaseTo(10, 350);
+        servoMid = false;
+        lastServo = true;
+        stopDist = 30;
+      }
+    }
+  }
+  
+  float currentDist = hc.dist(); //store distance value for this loop
+  int speed = constrain(map(currentDist, 50, 120, 100, 200), 100, 200); //variable movement speed based on distances
+  Serial.print("Distance: "); Serial.println(currentDist);
+  Serial.print("Speed: "); Serial.println(speed);
 
   if (currentDist > stopDist) {
     goFC(speed);
@@ -124,99 +168,82 @@ void loop()
   }
   else if(currentDist <= stopDist) {
     stop(50);
-    int turnAngle = 0;
-    while (turnAngle == 0) {
-      Serial.println("made it");
-      turnAngle = findAngle();
-      switch(turnAngle) { //decide how to avoid obstacle based on readings
-        case 1:
-          turnL(100, 90);
-          break;
-        case 2:
-          turnL(100, 45);
-          break;
-        case 3:
-          turnR(100, 45);
-          break;
-        case 4:
-          turnR(100, 90);
-          break;
-        default:
-          break;
+    if (decideDirection()) {
+      while(currentDist <= 50) {
+        turnRC(75);
+        currentDist = hc.dist();
+        Serial.println(currentDist);
+        delay(60);
       }
+      delay(700);
+      stop(1);
     }
+    else {
+      if (manualOverride) return;
+      while(currentDist <= 50) {
+        turnLC(75);
+        currentDist = hc.dist();
+        Serial.println(currentDist);
+        delay(60);
+      }
+      delay(700);
+      stop(1);
+    }
+    speed = 50;
+  }
+}
+
+/******************************************************************************************************/
+/* * * * * * * * * * * * * * * *  Functions * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/******************************************************************************************************/
+
+//Decide Right = True
+bool decideDirection() //finds average distance between left and right directions, then returns the higher valued direction
+{
+  int pulseCount = 0;
+  float leftDistAverage = 0;
+  float rightDistAverage = 0;
+  servo1.setEasingType(EASE_CUBIC_IN_OUT);
+  servo1.easeTo(90, 1000); //set sensor to middle in case it isn't already
+
+  servo1.startEaseTo(160, 50); //non-blocking movement
     delay(200);
-  }
+    while(servo1.isMoving()) { //takes 15 pulses of distance for average
+      leftDistAverage = leftDistAverage + hc.dist();
+      if (manualInput()) break; //manualInput takes 60 milliseconds. This is critical to this function.
+      pulseCount++;
+    }
+  leftDistAverage = leftDistAverage/pulseCount;
+  pulseCount = 0;
+
+  servo1.easeTo(90, 1000);
+  servo1.startEaseTo(20, 50); //non-blocking movement
+    delay(200);
+    while(servo1.isMoving()) { //takes 15 pulses of distance for average
+      rightDistAverage = rightDistAverage + hc.dist();
+      if (manualInput()) break; //manualInput takes 60 milliseconds. This is critical to this function.
+      pulseCount++;
+    }
+  rightDistAverage = rightDistAverage/pulseCount;
+
+  servo1.easeTo(90, 1000); // return sensor to middle
+  delay(500);
+  if (manualOverride) return false;
+  if (rightDistAverage >= leftDistAverage) return true;
+  else return false;
 }
 
-int findAngle() //probes for highest distance at 4 different angles
+/**********************************************************************************************************************************************************/
+/**********************************************************************************************************************************************************/
+
+//determines if a manual input has been sent and performs requested action
+bool manualInput()
 {
-  float distance = 0;
-  int angleChoice = 0;
-  float currentDist = 0;
-
-  servo1.write(130);
-  delay(250);
-  currentDist = hc.dist();
-  if(currentDist >= distance) {
-    distance = currentDist;
-    angleChoice = 2;
+  uint8_t len = readPacket(&ble, 60); //60 millisecond timeout, some functions rely on this. I know that's bad but I'll fix it if I get the time.
+  if (stillPressed) {
+    len = 1;
   }
-
-  delay(250);
-
-  
-  servo1.write(50);
-  delay(500);
-  currentDist = hc.dist();
-  if(currentDist >= distance) {
-    angleChoice = 3;
-    distance = currentDist;
-  }
-  delay(250);
-
-  servo1.write(170);
-  delay(500);
-  currentDist = hc.dist();
-  if(currentDist >= distance) {
-    angleChoice = 1;
-    distance = currentDist;
-
-  }
-  delay(250);
-
-  servo1.write(10);
-
-  delay(500);
-  currentDist = hc.dist();
-  if(currentDist >= distance) {
-
-    angleChoice = 4;
-  }
-  delay(250);
-
-  servo1.write(90);
-  return(angleChoice);
-}
-
-bool manualInput() //determines if a manual input has been sent and performs requested action
-{
-  uint8_t len = readPacket(&ble, 60);
-  if (len == 0) return false;
-
-  // Color
-  if (packetbuffer[1] == 'C') {
-    uint8_t red = packetbuffer[2];
-    uint8_t green = packetbuffer[3];
-    uint8_t blue = packetbuffer[4];
-    Serial.print ("RGB #");
-    if (red < 0x10) Serial.print("0");
-    Serial.print(red, HEX);
-    if (green < 0x10) Serial.print("0");
-    Serial.print(green, HEX);
-    if (blue < 0x10) Serial.print("0");
-    Serial.println(blue, HEX);
-  }
+  if (len == 0) return false; //no new button presses
 
   // Buttons
   if (packetbuffer[1] == 'B') {
@@ -230,66 +257,93 @@ bool manualInput() //determines if a manual input has been sent and performs req
     }
 
     switch(buttnum) {
-      case 1:
+      case 1: //start manual only controls
         manualOverride = true;
         Serial.println("overridden");
         stop(1);
+        servo1.setEasingType(EASE_BOUNCE_OUT);
+        servo1.startEaseTo(90,50);
         break;
-      case 2:
+      case 2: //return to automatic driving
         manualOverride = false;
         Serial.println("unoverride");
+        servo1.setEasingType(EASE_CUBIC_IN_OUT);
         break;
-      case 3:
-        while (pressed){
+      case 3: //decrease speed of manual inputs
+        if (pressed){
           manualSpeed = manualSpeed - 10;
           int constrainSpeed = constrain(manualSpeed, 50, 255);
           manualSpeed = constrainSpeed;
-          Serial.println(manualSpeed);
+          Serial.print("Speed is now: "); Serial.println(manualSpeed);
         }
         break;
-      case 4:
-        while (pressed){
+      case 4: //increase speed of manual inputs
+        if (pressed){
           manualSpeed = manualSpeed + 10;
           int constrainSpeed = constrain(manualSpeed, 50, 255);
           manualSpeed = constrainSpeed;
-          Serial.println(manualSpeed);
+          Serial.print("Speed is now: "); Serial.println(manualSpeed);
         }
         break;
-      case 5:
+      case 5: //up dpad, goes forward
         if (pressed) {
           goFC(manualSpeed);
+          stillPressed = true;
         }
         else {
           Serial.println("stop forward");
           stop(1);
+          stillPressed = false;
         }
         break;
-      case 6:
+      case 6: //down dpad, goes backward
         if (pressed) {
           goBC(manualSpeed);
-
+          stillPressed = true;
         } 
         else {
           stop(1);
+          stillPressed = false;
         }
         break;
-      case 7:
+      case 7: //left dpad, turns left
         if (pressed) {
           turnLC(manualSpeed);
+          stillPressed = true;
         } 
         else {
           stop(1);
+          stillPressed = false;
         }
         break;
-      case 8:
+      case 8: //right dpad, turns right
         if (pressed) {
           turnRC(manualSpeed);
+          stillPressed = true;
         } 
         else {
           stop(1);
+          stillPressed = false;
         }
         break;
     }
   }
-  return false;
+
+  /*
+  // Color ***potential for manual control over RGB LEDs***
+  if (packetbuffer[1] == 'C') { 
+    uint8_t red = packetbuffer[2];
+    uint8_t green = packetbuffer[3];
+    uint8_t blue = packetbuffer[4];
+    Serial.print ("RGB #");
+    if (red < 0x10) Serial.print("0");
+    Serial.print(red, HEX);
+    if (green < 0x10) Serial.print("0");
+    Serial.print(green, HEX);
+    if (blue < 0x10) Serial.print("0");
+    Serial.println(blue, HEX);
+  }
+  */
+
+  return true; //sets loop to immediately check for new input
 }

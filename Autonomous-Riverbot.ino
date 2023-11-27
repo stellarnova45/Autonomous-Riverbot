@@ -1,5 +1,6 @@
 #define ENABLE_EASE_CUBIC
 #define ENABLE_EASE_BOUNCE
+#define ENABLE_EASE_BACK
 #include <ServoEasing.hpp>
 #include "src/HCSR04.h"
 #include <string.h>

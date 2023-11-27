@@ -34,12 +34,15 @@ ServoEasing servo1;
 
 //global constants & variables
 float currentDist;
-const float stopDist = 20; //distance in centimeters that the car will stop
+const float stopDist = 30; //distance in centimeters that the car will stop
 int servoPos = 90;
 bool manualOverride = true;
+bool stillPressed = false;
 int manualSpeed = 150;
-int milliStore = 0;
-int milliPulse = 60;
+unsigned long currentMilli = 0;
+unsigned long lastMilli = 0;
+unsigned long milliPulse = 300;
+bool lastServo = false;
 
 /******************************************************************************************************/
 /* * * * * * * * * * * * * * * * * * * * * Setup  * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -116,15 +119,27 @@ void setup()
 void loop()
 {
   if (manualInput()) return; //the bluetooth functionality, checks for any data
+  if (stillPressed) return; //prevents continuation of code when interrupted by input
   if (manualOverride) return; //responsible for the override stop functionality
+  currentMilli = millis();
+  Serial.println(currentMilli);
 
-  if (millis() >= milliStore + milliPulse){ 
-    float currentDist = hc.dist(); //store distance value for this loop
-    milliStore = millis();
+  if (currentMilli >= lastMilli + milliPulse) {
+    if (lastServo) { 
+      servo1.startEaseTo(125, 350);
+      lastServo = false;
+    }
+    else {
+      servo1.startEaseTo(55, 350);
+      lastServo = true;
+    }
+    lastMilli = millis();
   }
-  int speed = constrain(map(currentDist, 50, 120, 100, 255), 100, 255); //variable movement speed based on distances
-  Serial.println("Distance: "); Serial.print(currentDist);
-  Serial.println("Speed: "); Serial.print(speed);
+  
+  float currentDist = hc.dist(); //store distance value for this loop
+  int speed = constrain(map(currentDist, 50, 120, 100, 200), 100, 200); //variable movement speed based on distances
+  Serial.print("Distance: "); Serial.println(currentDist);
+  Serial.print("Speed: "); Serial.println(speed);
 
   if (currentDist > stopDist) {
     goFC(speed);
@@ -133,20 +148,27 @@ void loop()
   else if(currentDist <= stopDist) {
     stop(50);
     if (decideDirection()) {
-      for(int i = 0; i <= 180 || hc.dist() <= 40; i++) {
-        turnR(100, 1);
+      while(currentDist <= 50) {
+        turnRC(75);
+        currentDist = hc.dist();
+        Serial.println(currentDist);
+        delay(60);
       }
-      delay(500);
+      delay(700);
       stop(1);
     }
     else {
       if (manualOverride) return;
-      for(int i = 0; i <= 180 || hc.dist() <= 40; i++) {
-        turnL(100, 1);
+      while(currentDist <= 50) {
+        turnLC(75);
+        currentDist = hc.dist();
+        Serial.println(currentDist);
+        delay(60);
       }
-      delay(500);
+      delay(700);
       stop(1);
     }
+    speed = 50;
   }
 }
 
@@ -178,7 +200,8 @@ bool decideDirection() //finds average distance between left and right direction
     }
   rightDistAverage = rightDistAverage/15;
 
-  servo1.startEaseTo(90, 1000); // return sensor to middle
+  servo1.easeTo(90, 1000); // return sensor to middle
+  delay(500);
   if (manualOverride) return false;
   if (rightDistAverage >= leftDistAverage) return true;
   else return false;
@@ -186,10 +209,14 @@ bool decideDirection() //finds average distance between left and right direction
 
 /**********************************************************************************************************************************************************/
 /**********************************************************************************************************************************************************/
+
 //determines if a manual input has been sent and performs requested action
 bool manualInput()
 {
   uint8_t len = readPacket(&ble, 60); //60 millisecond timeout, some functions rely on this. I know its bad but I'll fix it if I get the time.
+  if (stillPressed) {
+    len = 1;
+  }
   if (len == 0) return false; //no new button presses
 
   // Buttons
@@ -214,52 +241,64 @@ bool manualInput()
         Serial.println("unoverride");
         break;
       case 3: //decrease speed of manual inputs
-        while (pressed){
+        if (pressed){
           manualSpeed = manualSpeed - 10;
           int constrainSpeed = constrain(manualSpeed, 50, 255);
           manualSpeed = constrainSpeed;
-          Serial.println(manualSpeed);
+          Serial.print("Speed is now: "); Serial.println(manualSpeed);
+          stillPressed = true;
         }
+        else stillPressed = false; return;
         break;
       case 4: //increase speed of manual inputs
-        while (pressed){
+        if (pressed){
           manualSpeed = manualSpeed + 10;
           int constrainSpeed = constrain(manualSpeed, 50, 255);
           manualSpeed = constrainSpeed;
-          Serial.println(manualSpeed);
+          Serial.print("Speed is now: "); Serial.println(manualSpeed);
+          stillPressed = true;
         }
+        else stillPressed = false; return;
         break;
       case 5: //up dpad, goes forward
         if (pressed) {
           goFC(manualSpeed);
+          stillPressed = true;
         }
         else {
           Serial.println("stop forward");
           stop(1);
+          stillPressed = false;
         }
         break;
       case 6: //down dpad, goes backward
         if (pressed) {
           goBC(manualSpeed);
+          stillPressed = true;
         } 
         else {
           stop(1);
+          stillPressed = false;
         }
         break;
       case 7: //left dpad, turns left
         if (pressed) {
           turnLC(manualSpeed);
+          stillPressed = true;
         } 
         else {
           stop(1);
+          stillPressed = false;
         }
         break;
       case 8: //right dpad, turns right
         if (pressed) {
           turnRC(manualSpeed);
+          stillPressed = true;
         } 
         else {
           stop(1);
+          stillPressed = false;
         }
         break;
     }

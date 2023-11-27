@@ -72,10 +72,10 @@ void turnL(int speed, int angle) //turns vehicle left in place
     Motor3->setSpeed(speed);
     Motor4->setSpeed(speed);
 
-    Motor1->run(BACKWARD);
-    Motor2->run(BACKWARD);
-    Motor3->run(FORWARD);
-    Motor4->run(FORWARD);
+    Motor3->run(BACKWARD);
+    Motor4->run(BACKWARD);
+    Motor1->run(FORWARD);
+    Motor2->run(FORWARD);
     delay((angle*angleFactor)/speed);
 }
 
@@ -86,10 +86,10 @@ void turnLC(int speed) //turns vehicle left in place
     Motor3->setSpeed(speed);
     Motor4->setSpeed(speed);
 
-    Motor1->run(BACKWARD);
-    Motor2->run(BACKWARD);
-    Motor3->run(FORWARD);
-    Motor4->run(FORWARD);
+    Motor3->run(BACKWARD);
+    Motor4->run(BACKWARD);
+    Motor1->run(FORWARD);
+    Motor2->run(FORWARD);
 }
 
 void turnR(int speed, int angle) //turns vehicle right in place
@@ -99,10 +99,10 @@ void turnR(int speed, int angle) //turns vehicle right in place
     Motor3->setSpeed(speed);
     Motor4->setSpeed(speed);
 
-    Motor1->run(FORWARD);
-    Motor2->run(FORWARD);
-    Motor3->run(BACKWARD);
-    Motor4->run(BACKWARD);
+    Motor3->run(FORWARD);
+    Motor4->run(FORWARD);
+    Motor1->run(BACKWARD);
+    Motor2->run(BACKWARD);
     delay((angle*angleFactor)/speed);
 }
 
@@ -113,10 +113,10 @@ void turnRC(int speed) //turns vehicle right in place
     Motor3->setSpeed(speed);
     Motor4->setSpeed(speed);
 
-    Motor1->run(FORWARD);
-    Motor2->run(FORWARD);
-    Motor3->run(BACKWARD);
-    Motor4->run(BACKWARD);
+    Motor3->run(FORWARD);
+    Motor4->run(FORWARD);
+    Motor1->run(BACKWARD);
+    Motor2->run(BACKWARD);
 }
 
 void stop(int time) //stops motors

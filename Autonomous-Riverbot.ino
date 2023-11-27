@@ -10,6 +10,7 @@
 #include "Adafruit_BluefruitLE_SPI.h"
 #include "BluefruitConfig.h"
 #include "motor_directions.h"
+#include "RunningAverage.h"
 
 #if SOFTWARE_SERIAL_AVAILABLE
   #include <SoftwareSerial.h>
@@ -32,8 +33,10 @@ void printHex(const uint8_t * data, const uint32_t numBytes);
 extern uint8_t packetbuffer[];
 Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
 
-HCSR04 hc(3, 2); //initialisation class HCSR04 (trig pin , echo pin)
+HCSR04 hc(2, 3); //initialisation class HCSR04 (trig pin , echo pin)
 ServoEasing servo1;
+
+RunningAverage distRA(5);
 
 //global constants & variables
 float currentDist;
@@ -41,7 +44,6 @@ float stopDist = 30; //distance in centimeters that the car will stop
 bool manualOverride = true;
 bool stillPressed = false;
 int manualSpeed = 150;
-unsigned long currentMilli = 0;
 bool lastServo = false;
 bool servoMid = true;
 
@@ -57,8 +59,6 @@ void setup()
   }
   
   servo1.attach(10, 90); //servo attached to pin 10
-  servo1.setSpeed(150);
-  servo1.setEasingType(EASE_CUBIC_IN_OUT);
 
 /* Initialise the module */
   Serial.print(F("Initialising the Bluefruit LE module: "));
@@ -93,9 +93,7 @@ void setup()
   ble.verbose(false);  // debug info is a little annoying after this point!
 
   /* Wait for connection */
-  while (! ble.isConnected()) {
-      delay(500);
-  }
+
 
   Serial.println(F("******************************"));
 
@@ -112,6 +110,15 @@ void setup()
   ble.setMode(BLUEFRUIT_MODE_DATA);
 
   Serial.println(F("******************************"));
+
+
+  servo1.setEasingType(EASE_BOUNCE_OUT);
+  servo1.setSpeed(50);
+  delay(500);
+  servo1.easeTo(0);
+  servo1.easeTo(180, 100);
+  servo1.easeTo(90);
+
 }
 
 /******************************************************************************************************/
@@ -122,8 +129,6 @@ void loop()
   if (manualInput()) return; //the bluetooth functionality, checks for any data
   if (stillPressed) return; //prevents continuation of code when interrupted by input
   if (manualOverride) return; //responsible for the override stop functionality
-  currentMilli = millis();
-  Serial.println(currentMilli);
 
   if (!servo1.isMoving()) {
     if (lastServo) {
@@ -159,8 +164,11 @@ void loop()
   }
   
   float currentDist = hc.dist(); //store distance value for this loop
-  int speed = constrain(map(currentDist, 50, 120, 100, 200), 100, 200); //variable movement speed based on distances
-  Serial.print("Distance: "); Serial.println(currentDist);
+  distRA.addValue(currentDist);
+  float distAverage = distRA.getAverage();
+
+  int speed = constrain(map(distAverage, 50, 150, 100, 200), 100, 255); //variable movement speed based on distances
+  Serial.print("Distance: "); Serial.println(distAverage);
   Serial.print("Speed: "); Serial.println(speed);
 
   if (currentDist > stopDist) {
@@ -263,7 +271,7 @@ bool manualInput()
         Serial.println("overridden");
         stop(1);
         servo1.setEasingType(EASE_BOUNCE_OUT);
-        servo1.startEaseTo(90,50);
+        servo1.startEaseTo(90, 40);
         break;
       case 2: //return to automatic driving
         manualOverride = false;

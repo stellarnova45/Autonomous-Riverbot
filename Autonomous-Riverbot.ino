@@ -1,3 +1,5 @@
+#define ENABLE_EASE_CUBIC
+#define ENABLE_EASE_BOUNCE
 #include <ServoEasing.hpp>
 #include "src/HCSR04.h"
 #include <string.h>
@@ -34,15 +36,13 @@ ServoEasing servo1;
 
 //global constants & variables
 float currentDist;
-const float stopDist = 30; //distance in centimeters that the car will stop
-int servoPos = 90;
+float stopDist = 30; //distance in centimeters that the car will stop
 bool manualOverride = true;
 bool stillPressed = false;
 int manualSpeed = 150;
 unsigned long currentMilli = 0;
-unsigned long lastMilli = 0;
-unsigned long milliPulse = 300;
 bool lastServo = false;
+bool servoMid = true;
 
 /******************************************************************************************************/
 /* * * * * * * * * * * * * * * * * * * * * Setup  * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -124,16 +124,37 @@ void loop()
   currentMilli = millis();
   Serial.println(currentMilli);
 
-  if (currentMilli >= lastMilli + milliPulse) {
-    if (lastServo) { 
-      servo1.startEaseTo(125, 350);
-      lastServo = false;
+  if (!servo1.isMoving()) {
+    if (lastServo) {
+      if (!servoMid) {
+        servo1.setEasingType(EASE_CUBIC_OUT);
+        servo1.startEaseTo(90, 350);
+        servoMid = true;
+        stopDist = 20;
+      }
+      else{
+        servo1.setEasingType(EASE_CUBIC_IN);
+        servo1.startEaseTo(170, 350);
+        servoMid = false;
+        lastServo = false;
+        stopDist = 30;
+      }
     }
     else {
-      servo1.startEaseTo(55, 350);
-      lastServo = true;
+      if (!servoMid) {
+        servo1.setEasingType(EASE_CUBIC_OUT);
+        servo1.startEaseTo(90, 350);
+        servoMid = true;
+        stopDist = 20;
+      }
+      else{
+        servo1.setEasingType(EASE_CUBIC_IN);
+        servo1.startEaseTo(10, 350);
+        servoMid = false;
+        lastServo = true;
+        stopDist = 30;
+      }
     }
-    lastMilli = millis();
   }
   
   float currentDist = hc.dist(); //store distance value for this loop
@@ -179,26 +200,31 @@ void loop()
 //Decide Right = True
 bool decideDirection() //finds average distance between left and right directions, then returns the higher valued direction
 {
+  int pulseCount = 0;
   float leftDistAverage = 0;
   float rightDistAverage = 0;
+  servo1.setEasingType(EASE_CUBIC_IN_OUT);
   servo1.easeTo(90, 1000); //set sensor to middle in case it isn't already
 
   servo1.startEaseTo(160, 50); //non-blocking movement
     delay(200);
-    for(int i = 0; i <= 15; i++) { //takes 15 pulses of distance for average
+    while(servo1.isMoving()) { //takes 15 pulses of distance for average
       leftDistAverage = leftDistAverage + hc.dist();
       if (manualInput()) break; //manualInput takes 60 milliseconds. This is critical to this function.
+      pulseCount++;
     }
-  leftDistAverage = leftDistAverage/15;
+  leftDistAverage = leftDistAverage/pulseCount;
+  pulseCount = 0;
 
   servo1.easeTo(90, 1000);
   servo1.startEaseTo(20, 50); //non-blocking movement
     delay(200);
-    for(int i = 0; i <= 15; i++) { //takes 15 pulses of distance for average
+    while(servo1.isMoving()) { //takes 15 pulses of distance for average
       rightDistAverage = rightDistAverage + hc.dist();
       if (manualInput()) break; //manualInput takes 60 milliseconds. This is critical to this function.
+      pulseCount++;
     }
-  rightDistAverage = rightDistAverage/15;
+  rightDistAverage = rightDistAverage/pulseCount;
 
   servo1.easeTo(90, 1000); // return sensor to middle
   delay(500);
@@ -213,7 +239,7 @@ bool decideDirection() //finds average distance between left and right direction
 //determines if a manual input has been sent and performs requested action
 bool manualInput()
 {
-  uint8_t len = readPacket(&ble, 60); //60 millisecond timeout, some functions rely on this. I know its bad but I'll fix it if I get the time.
+  uint8_t len = readPacket(&ble, 60); //60 millisecond timeout, some functions rely on this. I know that's bad but I'll fix it if I get the time.
   if (stillPressed) {
     len = 1;
   }
@@ -235,10 +261,13 @@ bool manualInput()
         manualOverride = true;
         Serial.println("overridden");
         stop(1);
+        servo1.setEasingType(EASE_BOUNCE_OUT);
+        servo1.startEaseTo(90,50);
         break;
       case 2: //return to automatic driving
         manualOverride = false;
         Serial.println("unoverride");
+        servo1.setEasingType(EASE_CUBIC_IN_OUT);
         break;
       case 3: //decrease speed of manual inputs
         if (pressed){
@@ -246,9 +275,7 @@ bool manualInput()
           int constrainSpeed = constrain(manualSpeed, 50, 255);
           manualSpeed = constrainSpeed;
           Serial.print("Speed is now: "); Serial.println(manualSpeed);
-          stillPressed = true;
         }
-        else stillPressed = false; return;
         break;
       case 4: //increase speed of manual inputs
         if (pressed){
@@ -256,9 +283,7 @@ bool manualInput()
           int constrainSpeed = constrain(manualSpeed, 50, 255);
           manualSpeed = constrainSpeed;
           Serial.print("Speed is now: "); Serial.println(manualSpeed);
-          stillPressed = true;
         }
-        else stillPressed = false; return;
         break;
       case 5: //up dpad, goes forward
         if (pressed) {

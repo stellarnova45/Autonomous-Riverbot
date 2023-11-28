@@ -13,10 +13,11 @@ Adafruit_DCMotor *Motor4 = AFMS.getMotor(4);
 //functions definitions
 void goF(int speed, int dist) //drives straight forward
 {
-    Motor1->setSpeed(speed-2);
-    Motor2->setSpeed(speed-2);
+    Motor1->setSpeed(speed);
+    Motor2->setSpeed(speed);
     Motor3->setSpeed(speed);
     Motor4->setSpeed(speed);
+
 
     Motor1->run(FORWARD);
     Motor2->run(FORWARD);
@@ -27,8 +28,8 @@ void goF(int speed, int dist) //drives straight forward
 
 void goFC(int speed) //drives straight forward
 {
-    Motor1->setSpeed(speed-2);
-    Motor2->setSpeed(speed-2);
+    Motor1->setSpeed(speed);
+    Motor2->setSpeed(speed);
     Motor3->setSpeed(speed);
     Motor4->setSpeed(speed);
 
@@ -42,8 +43,8 @@ void goB(int speed, int dist) //drives straight backward
 {
     Motor1->setSpeed(speed);
     Motor2->setSpeed(speed);
-    Motor3->setSpeed(speed-2);
-    Motor4->setSpeed(speed-2);
+    Motor3->setSpeed(speed);
+    Motor4->setSpeed(speed);
 
     Motor1->run(BACKWARD);
     Motor2->run(BACKWARD);
@@ -56,8 +57,8 @@ void goBC(int speed) //drives straight backward
 {
     Motor1->setSpeed(speed);
     Motor2->setSpeed(speed);
-    Motor3->setSpeed(speed-2);
-    Motor4->setSpeed(speed-2);
+    Motor3->setSpeed(speed);
+    Motor4->setSpeed(speed);
 
     Motor1->run(BACKWARD);
     Motor2->run(BACKWARD);

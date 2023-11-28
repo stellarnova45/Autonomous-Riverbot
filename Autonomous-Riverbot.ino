@@ -36,7 +36,7 @@ Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_
 HCSR04 hc(2, 3); //initialisation class HCSR04 (trig pin , echo pin)
 ServoEasing servo1;
 
-RunningAverage distRA(5);
+RunningAverage distRA(7);
 
 //global constants & variables
 float currentDist;
@@ -167,7 +167,7 @@ void loop()
   distRA.addValue(currentDist);
   float distAverage = distRA.getAverage();
 
-  int speed = constrain(map(distAverage, 50, 150, 100, 200), 100, 255); //variable movement speed based on distances
+  int speed = constrain(map(distAverage, 50, 150, 100, 255), 100, 255); //variable movement speed based on distances
   Serial.print("Distance: "); Serial.println(distAverage);
   Serial.print("Speed: "); Serial.println(speed);
 
@@ -178,24 +178,24 @@ void loop()
   else if(currentDist <= stopDist) {
     stop(50);
     if (decideDirection()) {
-      while(currentDist <= 50) {
+      while(currentDist <= 70) {
         turnRC(75);
         currentDist = hc.dist();
         Serial.println(currentDist);
         delay(60);
       }
-      delay(700);
+      delay(650);
       stop(1);
     }
     else {
       if (manualOverride) return;
-      while(currentDist <= 50) {
+      while(currentDist <= 70) {
         turnLC(75);
         currentDist = hc.dist();
         Serial.println(currentDist);
         delay(60);
       }
-      delay(700);
+      delay(650);
       stop(1);
     }
     speed = 50;
@@ -280,16 +280,16 @@ bool manualInput()
         break;
       case 3: //decrease speed of manual inputs
         if (pressed){
-          manualSpeed = manualSpeed - 10;
-          int constrainSpeed = constrain(manualSpeed, 50, 255);
+          manualSpeed = manualSpeed - 50;
+          int constrainSpeed = constrain(manualSpeed, 60, 255);
           manualSpeed = constrainSpeed;
           Serial.print("Speed is now: "); Serial.println(manualSpeed);
         }
         break;
       case 4: //increase speed of manual inputs
         if (pressed){
-          manualSpeed = manualSpeed + 10;
-          int constrainSpeed = constrain(manualSpeed, 50, 255);
+          manualSpeed = manualSpeed + 50;
+          int constrainSpeed = constrain(manualSpeed, 60, 255);
           manualSpeed = constrainSpeed;
           Serial.print("Speed is now: "); Serial.println(manualSpeed);
         }

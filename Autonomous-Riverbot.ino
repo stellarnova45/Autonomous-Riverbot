@@ -140,7 +140,7 @@ void loop()
       }
       else{
         servo1.setEasingType(EASE_CUBIC_IN);
-        servo1.startEaseTo(170, 350);
+        servo1.startEaseTo(165, 350);
         servoMid = false;
         lastServo = false;
         stopDist = 30;

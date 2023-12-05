@@ -206,14 +206,14 @@ void loop()
 /* * * * * * * * * * * * * * * *  Functions * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /******************************************************************************************************/
 
-//Decide Right = True
+//Decide which way to turn (Right = Return True)
 bool decideDirection() //finds average distance between left and right directions, then returns the higher valued direction
 {
   int pulseCount = 0;
   float leftDistAverage = 0;
   float rightDistAverage = 0;
   servo1.setEasingType(EASE_CUBIC_IN_OUT);
-  servo1.easeTo(90, 1000); //set sensor to middle in case it isn't already
+  servo1.easeTo(90, 1000); //move sensor to middle in case it isn't already
 
   servo1.startEaseTo(160, 50); //non-blocking movement
     delay(200);
@@ -235,7 +235,7 @@ bool decideDirection() //finds average distance between left and right direction
     }
   rightDistAverage = rightDistAverage/pulseCount;
 
-  servo1.easeTo(90, 1000); // return sensor to middle
+  servo1.easeTo(90, 1000); //return sensor to middle
   delay(500);
   if (manualOverride) return false;
   if (rightDistAverage >= leftDistAverage) return true;
@@ -245,7 +245,7 @@ bool decideDirection() //finds average distance between left and right direction
 /**********************************************************************************************************************************************************/
 /**********************************************************************************************************************************************************/
 
-//determines if a manual input has been sent and performs requested action
+//determines if a manual input has been sent over bluetooth and performs requested action
 bool manualInput()
 {
   uint8_t len = readPacket(&ble, 60); //60 millisecond timeout, some functions rely on this. I know that's bad but I'll fix it if I get the time.

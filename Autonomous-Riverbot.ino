@@ -22,7 +22,7 @@
 #define MODE_LED_BEHAVIOUR          "MODE"
 // A small helper
 void error(const __FlashStringHelper*err) {
-  Serial.println(err);
+  //Serial.println(err);
   while (1);
 }
 // function prototypes over in packetparser.cpp
@@ -52,7 +52,7 @@ bool servoMid = true;
 /******************************************************************************************************/
 void setup()
 {
-  Serial.begin(9600);
+  //Serial.begin(9600);
   //start the motor shield
   if (!AFMS.begin()) {
     while (1);
@@ -61,18 +61,18 @@ void setup()
   servo1.attach(10, 90); //servo attached to pin 10
 
 /* Initialise the module */
-  Serial.print(F("Initialising the Bluefruit LE module: "));
+  //Serial.print(F("Initialising the Bluefruit LE module: "));
 
   if ( !ble.begin(VERBOSE_MODE) )
   {
     error(F("Couldn't find Bluefruit, make sure it's in CoMmanD mode & check wiring?"));
   }
-  Serial.println( F("OK!") );
+  //Serial.println( F("OK!") );
 
   if ( FACTORYRESET_ENABLE )
   {
     /* Perform a factory reset to make sure everything is in a known state */
-    Serial.println(F("Performing a factory reset: "));
+    //Serial.println(F("Performing a factory reset: "));
     if ( ! ble.factoryReset() ){
       error(F("Couldn't factory reset"));
     }
@@ -82,34 +82,34 @@ void setup()
   /* Disable command echo from Bluefruit */
   ble.echo(false);
 
-  Serial.println("Requesting Bluefruit info:");
+  //Serial.println("Requesting Bluefruit info:");
   /* Print Bluefruit information */
   ble.info();
 
-  Serial.println(F("Please use Adafruit Bluefruit LE app to connect in Controller mode"));
-  Serial.println(F("Then activate/use the sensors, color picker, game controller, etc!"));
-  Serial.println();
+  //Serial.println(F("Please use Adafruit Bluefruit LE app to connect in Controller mode"));
+  //Serial.println(F("Then activate/use the sensors, color picker, game controller, etc!"));
+  //Serial.println();
 
   ble.verbose(false);  // debug info is a little annoying after this point!
 
   /* Wait for connection */
 
 
-  Serial.println(F("******************************"));
+  //Serial.println(F("******************************"));
 
   // LED Activity command is only supported from 0.6.6
   if ( ble.isVersionAtLeast(MINIMUM_FIRMWARE_VERSION) )
   {
     // Change Mode LED Activity
-    Serial.println(F("Change LED activity to " MODE_LED_BEHAVIOUR));
+    //Serial.println(F("Change LED activity to " MODE_LED_BEHAVIOUR));
     ble.sendCommandCheckOK("AT+HWModeLED=" MODE_LED_BEHAVIOUR);
   }
 
   // Set Bluefruit to DATA mode
-  Serial.println( F("Switching to DATA mode!") );
+  //Serial.println( F("Switching to DATA mode!") );
   ble.setMode(BLUEFRUIT_MODE_DATA);
 
-  Serial.println(F("******************************"));
+  //Serial.println(F("******************************"));
 
 
   servo1.setEasingType(EASE_BOUNCE_OUT);
@@ -167,9 +167,9 @@ void loop()
   distRA.addValue(currentDist);
   float distAverage = distRA.getAverage();
 
-  int speed = constrain(map(distAverage, 50, 150, 100, 255), 100, 255); //variable movement speed based on distances
-  Serial.print("Distance: "); Serial.println(distAverage);
-  Serial.print("Speed: "); Serial.println(speed);
+  int speed = constrain(map(distAverage, 70, 150, 100, 255), 100, 255); //variable movement speed based on distances
+  //Serial.print("Distance: "); //Serial.println(distAverage);
+  //Serial.print("Speed: "); //Serial.println(speed);
 
   if (currentDist > stopDist) {
     goFC(speed);
@@ -181,7 +181,7 @@ void loop()
       while(currentDist <= 70) {
         turnRC(75);
         currentDist = hc.dist();
-        Serial.println(currentDist);
+        //Serial.println(currentDist);
         delay(60);
       }
       delay(650);
@@ -192,7 +192,7 @@ void loop()
       while(currentDist <= 70) {
         turnLC(75);
         currentDist = hc.dist();
-        Serial.println(currentDist);
+        //Serial.println(currentDist);
         delay(60);
       }
       delay(650);
@@ -258,24 +258,24 @@ bool manualInput()
   if (packetbuffer[1] == 'B') {
     uint8_t buttnum = packetbuffer[2] - '0';
     boolean pressed = packetbuffer[3] - '0';
-    Serial.print ("Button "); Serial.print(buttnum);
+    //Serial.print ("Button "); //Serial.print(buttnum);
     if (pressed) {
-      Serial.println(" pressed");
+      //Serial.println(" pressed");
     } else {
-      Serial.println(" released");
+      //Serial.println(" released");
     }
 
     switch(buttnum) {
       case 1: //start manual only controls
         manualOverride = true;
-        Serial.println("overridden");
+        //Serial.println("overridden");
         stop(1);
         servo1.setEasingType(EASE_BOUNCE_OUT);
         servo1.startEaseTo(90, 40);
         break;
       case 2: //return to automatic driving
         manualOverride = false;
-        Serial.println("unoverride");
+        //Serial.println("unoverride");
         servo1.setEasingType(EASE_CUBIC_IN_OUT);
         break;
       case 3: //decrease speed of manual inputs
@@ -283,7 +283,7 @@ bool manualInput()
           manualSpeed = manualSpeed - 50;
           int constrainSpeed = constrain(manualSpeed, 60, 255);
           manualSpeed = constrainSpeed;
-          Serial.print("Speed is now: "); Serial.println(manualSpeed);
+          //Serial.print("Speed is now: "); //Serial.println(manualSpeed);
         }
         break;
       case 4: //increase speed of manual inputs
@@ -291,7 +291,7 @@ bool manualInput()
           manualSpeed = manualSpeed + 50;
           int constrainSpeed = constrain(manualSpeed, 60, 255);
           manualSpeed = constrainSpeed;
-          Serial.print("Speed is now: "); Serial.println(manualSpeed);
+          //Serial.print("Speed is now: "); //Serial.println(manualSpeed);
         }
         break;
       case 5: //up dpad, goes forward
@@ -300,7 +300,7 @@ bool manualInput()
           stillPressed = true;
         }
         else {
-          Serial.println("stop forward");
+          //Serial.println("stop forward");
           stop(1);
           stillPressed = false;
         }
@@ -344,13 +344,13 @@ bool manualInput()
     uint8_t red = packetbuffer[2];
     uint8_t green = packetbuffer[3];
     uint8_t blue = packetbuffer[4];
-    Serial.print ("RGB #");
-    if (red < 0x10) Serial.print("0");
-    Serial.print(red, HEX);
-    if (green < 0x10) Serial.print("0");
-    Serial.print(green, HEX);
-    if (blue < 0x10) Serial.print("0");
-    Serial.println(blue, HEX);
+    //Serial.print ("RGB #");
+    if (red < 0x10) //Serial.print("0");
+    //Serial.print(red, HEX);
+    if (green < 0x10) //Serial.print("0");
+    //Serial.print(green, HEX);
+    if (blue < 0x10) //Serial.print("0");
+    //Serial.println(blue, HEX);
   }
   */
 

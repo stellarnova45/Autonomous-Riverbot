@@ -39,13 +39,16 @@ ServoEasing servo1;
 RunningAverage distRA(7);
 
 //global constants & variables
-float currentDist;
+float currentDist = 40;
 float stopDist = 30; //distance in centimeters that the car will stop
 bool manualOverride = true;
 bool stillPressed = false;
 int manualSpeed = 150;
 bool lastServo = false;
 bool servoMid = true;
+unsigned long lastMill = 0;
+unsigned long millPulse = 60;
+float distAverage;
 
 /******************************************************************************************************/
 /* * * * * * * * * * * * * * * * * * * * * Setup  * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -162,14 +165,16 @@ void loop()
       }
     }
   }
-  
-  float currentDist = hc.dist(); //store distance value for this loop
-  distRA.addValue(currentDist);
-  float distAverage = distRA.getAverage();
+  if(millis() - lastMill >= millPulse){
+    currentDist = hc.dist(); //store distance value for this loop
+    distRA.addValue(currentDist);
+    distAverage = distRA.getAverage();
+    lastMill = millis();
+  }
 
-  int speed = constrain(map(distAverage, 70, 150, 100, 255), 100, 255); //variable movement speed based on distances
-  //Serial.print("Distance: "); //Serial.println(distAverage);
-  //Serial.print("Speed: "); //Serial.println(speed);
+  int speed = constrain(map(distAverage, 150, 180, 90, 255), 90, 255); //variable movement speed based on distances
+  //Serial.print("Distance: "); Serial.println(distAverage);
+  //Serial.print("Speed: "); Serial.println(speed);
 
   if (currentDist > stopDist) {
     goFC(speed);
@@ -184,7 +189,7 @@ void loop()
         //Serial.println(currentDist);
         delay(60);
       }
-      delay(650);
+      delay(950);
       stop(1);
     }
     else {
@@ -195,7 +200,7 @@ void loop()
         //Serial.println(currentDist);
         delay(60);
       }
-      delay(650);
+      delay(950);
       stop(1);
     }
     speed = 50;
